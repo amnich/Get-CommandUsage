@@ -35,6 +35,7 @@ function Get-CommandUsage {
 	.LINK
 		https://github.com/amnich/Get-CommandUsage
 #>
+[cmdletbinding()]
 param(
 [parameter(ParameterSetName='Command',Mandatory=$True)]
 	[ValidateNotNullorEmpty()]
