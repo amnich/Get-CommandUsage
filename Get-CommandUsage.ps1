@@ -58,19 +58,20 @@ param(
 		}
 
 		if ($PSCmdlet.MyInvocation.BoundParameters["Module"] -ne $null){
-			Write-Verbose "Get $Module commands"
+			Write-Verbose "Get $Module commands."
 			$commands = (Get-Command -Module $Module).Name
 			if ($commands -eq $null){
 				Write-Error "No commands from module $module`n$($Error[0] | out-string)"
 				break
 			}
-			Write-Verbose "Got $($commands.count) commands"
+			Write-Verbose "Got $($commands.count) commands."
 			Write-Debug "$($commands | out-string)"			
 		}
 		else{
 			$commands = $command
 		}
 		$pathParams = @{
+			Path = $Path
 			Filter = "*.ps1"
 		}
 		if ($PSCmdlet.MyInvocation.BoundParameters["Recurse"].IsPresent){
@@ -78,10 +79,9 @@ param(
 				Recurse = $true
 			}
 		}
-
-		Write-Verbose "Get files from repository"
-		$files = Get-ChildItem $Path @pathParams
-		Write-Verbose "Got $($files.Count) files"
+		Write-Verbose "Get files from directory."
+		$files = Get-ChildItem @pathParams
+		Write-Verbose "Got $($files.Count) files."
 		$regexModule = "(?i)^\s{0,}(#{0,})\s*Import-Module.+$module"
 	} #BEGIN end
 	PROCESS{
