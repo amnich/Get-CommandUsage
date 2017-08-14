@@ -44,7 +44,7 @@ param(
 	[string]$Path = $PWD.Path,
 	[switch]$Recurse,
 	[parameter(ParameterSetName='Module',Mandatory=$True)]
-	[ValidateNotNullorEmpty()]
+	[ValidateScript({Get-Module -ListAvailable -Name $_ })]
 	[string]$Module
 
 )
@@ -60,12 +60,12 @@ param(
 		if ($PSCmdlet.MyInvocation.BoundParameters["Module"] -ne $null){
 			Write-Verbose "Get $Module commands"
 			$commands = (Get-Command -Module $Module).Name
-			Write-Verbose "Got $($commands.count) commands"
-			Write-Debug "$($commands | out-string)"
 			if ($commands -eq $null){
-				Write-Error "No commands from module $module"
+				Write-Error "No commands from module $module`n$($Error[0] | out-string)"
 				break
 			}
+			Write-Verbose "Got $($commands.count) commands"
+			Write-Debug "$($commands | out-string)"			
 		}
 		else{
 			$commands = $command
