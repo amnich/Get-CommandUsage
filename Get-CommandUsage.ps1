@@ -86,14 +86,14 @@ param(
 	} #BEGIN end
 	PROCESS{
 		foreach ($file in $files){
-			$results = @()
+			$results = New-Object System.Collections.Generic.List[System.Management.Automation.Language.Ast]]
 			Write-Verbose "   $($file.fullname)"
 			$scriptFileAst = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
 			Foreach ($command in $commands){
 				Write-Debug "      Find $command using regex"
 				if ($scriptFileAst.Extent.Text | Select-String -Pattern "(?i)$command") {
 					Write-Debug "		Get command usage with Ast"
-					$results += $scriptFileAst.FindAll(${function:Find-CommandInAst}, $true)
+					$results.AddRange($scriptFileAst.FindAll(${function:Find-CommandInAst}, $true))
 				}
 			}
 			If ($results){
