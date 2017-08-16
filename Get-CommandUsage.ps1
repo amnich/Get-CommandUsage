@@ -10,7 +10,8 @@ function Get-CommandUsage {
 			- script name
 			- script path
 			- command line in script
-			- line number of command			
+			- line number of command
+			- is alias
 	.PARAMETER Command
 		Single command or array of commands.
 	.PARAMETER Path
@@ -33,7 +34,8 @@ function Get-CommandUsage {
 		Path         : C:\Scripts\copy-items.ps1
 		CommandLine  : Get-ChildItem $path_out -Filter *.pdf -ErrorVariable +my_error
 		LineNumber   : 40
-
+		IsAlias      :
+		
 		Find usage of Get-ChildItem in all PS1 scripts in C:\Scripts and subdirectories
 	
 	.EXAMPLE
@@ -44,12 +46,14 @@ function Get-CommandUsage {
 		Path         : C:\Scripts\copy-items.ps1
 		CommandLine  : Get-ChildItem $path_out -Filter *.pdf -ErrorVariable +my_error
 		LineNumber   : 40
+		IsAlias      : False
 		
 		Command      : Get-ChildItem
 		Script       : copy-items.ps1
 		Path         : C:\Scripts\copy-items.ps1
 		CommandLine  : gci $path_in 
 		LineNumber   : 41
+		IsAlias      : True
 
 		Find usage of Get-ChildItem and its aliases in C:\Scripts\copy-items.ps1 script. 
 		Expands alias in returned results in Command property
@@ -62,6 +66,7 @@ function Get-CommandUsage {
 		Path         : C:\Scripts\get-ServerInfo.ps1
 		CommandLine  : Get-SQLDataTable -Query "SELECT ComputerName, Max(TimeCreated) as MaxDate from ServerLogs group by ComputerName"
 		LineNumber   : 50
+		IsAlias      :
 
 		Find all used commands from module SomeModule in scripts in current directory
 		
@@ -73,6 +78,7 @@ function Get-CommandUsage {
 		Path         : C:\Scripts\copy-items.ps1
 		CommandLine  : Get-ChildItem $path_in 
 		LineNumber   : 4
+		IsAlias      :
 		
 		Find all commands in scripts in C:\Scripts
 
@@ -128,6 +134,22 @@ param(
 				Recurse = $true
 			}
 		}
+		#create alias list to speed up discovery
+		if ($PSCmdlet.MyInvocation.BoundParameters["AliasExpand"].IsPresent){
+			$aliasList = Get-Alias
+			#list alias -> command 
+			$aliasHT = @{}
+			foreach ($aliasInList in $aliasList){
+				$aliasHT.Add($aliasInList.Name,$aliasInList.Definition)
+			}
+			$aliasGroup = $aliasList | Group-Object -Property Definition
+			#list command -> aliases
+			$aliasCMD = @{}
+			foreach ($aliasInGroup in $aliasGroup){
+				$aliasCMD.Add($aliasInGroup.name,@($aliasInGroup.Group.name))
+			}
+		}
+		
 		Write-Verbose "Get files from directory."
 		$files = Get-ChildItem @pathParams
 		Write-Verbose "Got $($files.Count) files."		
@@ -150,16 +172,15 @@ param(
 					}
 					#expand command aliases and find them in script
 					If ($PSCmdlet.MyInvocation.BoundParameters["AliasExpand"].IsPresent){
-						Write-Debug "      Expand command aliases"
-						$aliases = Get-Alias -Definition $command -ErrorAction SilentlyContinue | select -ExpandProperty Name
-						foreach ($alias in $aliases){
+						Write-Debug "      Expand command aliases"									
+						foreach ($alias in ($aliasCMD[$command])[0]){
 							Write-Debug "       Find $alias using regex"
 							if ($scriptFileAst.Extent.Text | Select-String -Pattern "(?i)$alias") {
 								Write-Debug "		Get command usage with Ast"
 								$commandToFind = $alias
 								$results.AddRange($scriptFileAst.FindAll(${function:Find-CommandInAst}, $true))
 							}
-						}
+						}						
 					}
 				}
 			}
@@ -174,18 +195,25 @@ param(
 					Write-Verbose "     $($res.extent.text)"
 						$obj = New-Object PSCustomObject -Property ([ordered]@{
 						Command = $(if ($AliasExpand){
-									try {
-										Get-Alias $res.CommandElements[0].value -ErrorAction Stop | Select -ExpandProperty Definition
+										$aliasRes = $aliasHT[$res.CommandElements[0].value]
+										if ($aliasRes){
+											$aliasRes
+											$isAlias = $true
+										}
+										else{
+											$res.CommandElements[0].value
+											$isAlias = $false
+										}
 									}
-									catch{
+									else{
 										$res.CommandElements[0].value
-									}
-								}
-								else{$res.CommandElements[0].value})
+										$isAlias = $null
+									})
 						Script = $file.name
 						Path = $file.FullName
 						CommandLine = $res.Parent
-						LineNumber = $res.extent.StartLineNumber						
+						LineNumber = $res.extent.StartLineNumber	
+						IsAlias = $isAlias
 					})
 					Write-Debug "$($obj | out-string)"
 					$obj
