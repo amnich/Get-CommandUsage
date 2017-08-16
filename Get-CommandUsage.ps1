@@ -10,8 +10,7 @@ function Get-CommandUsage {
 			- script name
 			- script path
 			- command line in script
-			- line number of command
-			- if module parameter was provided search for Import-Module
+			- line number of command			
 	.PARAMETER Command
 		Single command or array of commands.
 	.PARAMETER Path
@@ -21,6 +20,8 @@ function Get-CommandUsage {
 		Recurse switch for Path parameter.
 	.PARAMETER Module
 		Module to load all commands from.
+	.PARAMETER All
+		Get all commands from script.
 	.EXAMPLE
 		Get-CommandUsage -Command Get-ChildItem -Path C:\Scripts -Recurse
 
@@ -45,7 +46,9 @@ param(
 	[switch]$Recurse,
 	[parameter(ParameterSetName='Module',Mandatory=$True)]
 	[ValidateScript({Get-Module -ListAvailable -Name $_ })]
-	[string]$Module
+	[string]$Module,
+	[parameter(ParameterSetName='All',Mandatory=$True)]
+	[switch]$All
 
 )
 	BEGIN{
@@ -81,27 +84,27 @@ param(
 		}
 		Write-Verbose "Get files from directory."
 		$files = Get-ChildItem @pathParams
-		Write-Verbose "Got $($files.Count) files."
-		$regexModule = "(?i)^\s{0,}(#{0,})\s*Import-Module.+$module"
+		Write-Verbose "Got $($files.Count) files."		
 	} #BEGIN end
 	PROCESS{
 		foreach ($file in $files){
 			$results = New-Object System.Collections.Generic.List[System.Management.Automation.Language.Ast]]
 			Write-Verbose "   $($file.fullname)"
 			$scriptFileAst = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
-			Foreach ($command in $commands){
-				Write-Debug "      Find $command using regex"
-				if ($scriptFileAst.Extent.Text | Select-String -Pattern "(?i)$command") {
-					Write-Debug "		Get command usage with Ast"
-					$results.AddRange($scriptFileAst.FindAll(${function:Find-CommandInAst}, $true))
+			If (!$PSCmdlet.MyInvocation.BoundParameters["All"].IsPresent){					
+				Foreach ($command in $commands){
+					Write-Debug "      Find $command using regex"
+					if ($scriptFileAst.Extent.Text | Select-String -Pattern "(?i)$command") {
+						Write-Debug "		Get command usage with Ast"
+						$results.AddRange($scriptFileAst.FindAll(${function:Find-CommandInAst}, $true))
+					}
 				}
 			}
+			else{
+				$results.AddRange($scriptFileAst.FindAll({$args[0] -is [System.Management.Automation.Language.CommandAst]}, $true))
+			}
 			If ($results){
-				Write-Verbose "      Command usage found."
-				if ($PSCmdlet.MyInvocation.BoundParameters["Module"] -ne $null){
-					Write-Verbose "      Module import $Module check"
-					$ModuleImport = Select-String -Pattern $regexModule -Path $file.FullName
-				}
+				Write-Verbose "      Command usage found."				
 				foreach ($res in $results){
 					Write-Verbose "     $($res.extent.text)"
 						$obj = New-Object PSCustomObject -Property ([ordered]@{
@@ -109,8 +112,7 @@ param(
 						Script = $file.name
 						Path = $file.FullName
 						CommandLine = $res.Parent
-						LineNumber = $res.extent.StartLineNumber
-						ModuleImport = $(if($ModuleImport){$true}else{$false})
+						LineNumber = $res.extent.StartLineNumber						
 					})
 					Write-Debug "$($obj | out-string)"
 					$obj
