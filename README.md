@@ -24,8 +24,7 @@ Function returs and object with information about
 		CommandLine  : Get-ChildItem $path_out -Filter *.pdf -ErrorVariable +my_error
 		LineNumber   : 40
 ```
-#### Find usage of Get-ChildItem and its aliases in C:\Scripts\copy-items.ps1 script. 
-#### Expands alias in returned results in Command property
+#### Find usage of Get-ChildItem and its aliases in C:\Scripts\copy-items.ps1 script. Expands alias in returned results in Command property
 ```powershell
 		PS > Get-CommandUsage -Command Get-ChildItem -AliasExpand -Path C:\Scripts\copy-items.ps1 
 		
