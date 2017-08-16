@@ -2,7 +2,7 @@
 
 Find command usage in script files using the System.Management.Automation.Language.Ast.
 
-Get all PS1 files from Path and search for a single command, array of commands or all commands from a module.
+Get all PS1 files from Path and search for a single command, array of commands, all commands from a module or all commands used.
 
 Function returs and object with information about
 
@@ -33,4 +33,14 @@ Path         : C:\Scripts\get-ServerInfo.ps1
 CommandLine  : Get-SQLDataTable -Query "SELECT ComputerName, Max(TimeCreated) as MaxDate from ServerLogs group by ComputerName"
 LineNumber   : 50
 
+```
+
+```powershell
+PS > Get-CommandUsage -All -Path C:\Scripts
+
+Command      : Get-ChildItem
+Script       : copy-items.ps1
+Path         : C:\Scripts\copy-items.ps1
+CommandLine  : Get-ChildItem $path_in 
+LineNumber   : 4
 ```
