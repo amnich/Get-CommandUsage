@@ -24,12 +24,35 @@ function Get-CommandUsage {
 		Get all commands from script.
 	.EXAMPLE
 		Get-CommandUsage -Command Get-ChildItem -Path C:\Scripts -Recurse
+		
+		Command      : Get-ChildItem
+		Script       : copy-items.ps1
+		Path         : C:\Scripts\copy-items.ps1
+		CommandLine  : Get-ChildItem $path_out -Filter *.pdf -ErrorVariable +my_error
+		LineNumber   : 40
 
 		Find usage of Get-ChildItem in all PS1 scripts in C:\Scripts and subdirectories
 	.EXAMPLE
 		Get-CommandUsage -Module SomeModule
+		
+		Command      : Get-SQLDataTable
+		Script       : get-ServerInfo.ps1
+		Path         : C:\Scripts\get-ServerInfo.ps1
+		CommandLine  : Get-SQLDataTable -Query "SELECT ComputerName, Max(TimeCreated) as MaxDate from ServerLogs group by ComputerName"
+		LineNumber   : 50
 
 		Find all used commands from module SomeModule in scripts in current directory
+		
+	.EXAMPLE
+		Get-CommandUsage -All -Path C:\Scripts
+		
+		Command      : Get-ChildItem
+		Script       : copy-items.ps1
+		Path         : C:\Scripts\copy-items.ps1
+		CommandLine  : Get-ChildItem $path_in 
+		LineNumber   : 4
+		
+		Find all commands in scripts in C:\Scripts
 
 	.NOTES
 		Thanks to Seemingly Science (https://seeminglyscience.github.io/) for giving me the language parser solution.
