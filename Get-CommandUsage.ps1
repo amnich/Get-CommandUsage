@@ -19,9 +19,12 @@ function Get-CommandUsage {
 	.PARAMETER Recurse
 		Recurse switch for Path parameter.
 	.PARAMETER Module
-		Module to load all commands from.
+		Module to load all commands from.		
 	.PARAMETER All
 		Get all commands from script.
+	.PARAMETER AliasExpand
+		Find all aliases for a command and search also for them in a script file.
+		It expands also the alias in the returned results.
 	.EXAMPLE
 		Get-CommandUsage -Command Get-ChildItem -Path C:\Scripts -Recurse
 		
@@ -32,6 +35,25 @@ function Get-CommandUsage {
 		LineNumber   : 40
 
 		Find usage of Get-ChildItem in all PS1 scripts in C:\Scripts and subdirectories
+	
+	.EXAMPLE
+		Get-CommandUsage -Command Get-ChildItem -AliasExpand -Path C:\Scripts\copy-items.ps1 
+		
+		Command      : Get-ChildItem
+		Script       : copy-items.ps1
+		Path         : C:\Scripts\copy-items.ps1
+		CommandLine  : Get-ChildItem $path_out -Filter *.pdf -ErrorVariable +my_error
+		LineNumber   : 40
+		
+		Command      : Get-ChildItem
+		Script       : copy-items.ps1
+		Path         : C:\Scripts\copy-items.ps1
+		CommandLine  : gci $path_in 
+		LineNumber   : 41
+
+		Find usage of Get-ChildItem and its aliases in C:\Scripts\copy-items.ps1 script. 
+		Expands alias in returned results in Command property
+	
 	.EXAMPLE
 		Get-CommandUsage -Module SomeModule
 		
@@ -71,7 +93,8 @@ param(
 	[ValidateScript({Get-Module -ListAvailable -Name $_ })]
 	[string]$Module,
 	[parameter(ParameterSetName='All',Mandatory=$True)]
-	[switch]$All
+	[switch]$All,
+	[switch]$AliasExpand
 
 )
 	BEGIN{
@@ -79,7 +102,7 @@ param(
 		    param([System.Management.Automation.Language.Ast] $Ast)
 		    end {
 		        return $Ast -is [System.Management.Automation.Language.CommandAst] -and
-		               $Ast.GetCommandName() -eq $command
+		               $Ast.GetCommandName() -eq $commandToFind
 		    }
 		}
 
@@ -111,27 +134,54 @@ param(
 	} #BEGIN end
 	PROCESS{
 		foreach ($file in $files){
+			#create new generic list to store results
 			$results = New-Object System.Collections.Generic.List[System.Management.Automation.Language.Ast]]
 			Write-Verbose "   $($file.fullname)"
+			#parse script file using ParseFile method
 			$scriptFileAst = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+			#Get specific commands from script file 
 			If (!$PSCmdlet.MyInvocation.BoundParameters["All"].IsPresent){					
-				Foreach ($command in $commands){
+				Foreach ($command in $commands){					
 					Write-Debug "      Find $command using regex"
 					if ($scriptFileAst.Extent.Text | Select-String -Pattern "(?i)$command") {
 						Write-Debug "		Get command usage with Ast"
+						$commandToFind = $command
 						$results.AddRange($scriptFileAst.FindAll(${function:Find-CommandInAst}, $true))
+					}
+					#expand command aliases and find them in script
+					If ($PSCmdlet.MyInvocation.BoundParameters["AliasExpand"].IsPresent){
+						Write-Debug "      Expand command aliases"
+						$aliases = Get-Alias -Definition $command -ErrorAction SilentlyContinue | select -ExpandProperty Name
+						foreach ($alias in $aliases){
+							Write-Debug "       Find $alias using regex"
+							if ($scriptFileAst.Extent.Text | Select-String -Pattern "(?i)$alias") {
+								Write-Debug "		Get command usage with Ast"
+								$commandToFind = $alias
+								$results.AddRange($scriptFileAst.FindAll(${function:Find-CommandInAst}, $true))
+							}
+						}
 					}
 				}
 			}
+			#Get all commands from script file
 			else{
 				$results.AddRange($scriptFileAst.FindAll({$args[0] -is [System.Management.Automation.Language.CommandAst]}, $true))
 			}
+			#if something found create object foreach result to return
 			If ($results){
 				Write-Verbose "      Command usage found."				
 				foreach ($res in $results){
 					Write-Verbose "     $($res.extent.text)"
 						$obj = New-Object PSCustomObject -Property ([ordered]@{
-						Command = $res.CommandElements[0].value
+						Command = $(if ($AliasExpand){
+									try {
+										Get-Alias $res.CommandElements[0].value -ErrorAction Stop | Select -ExpandProperty Definition
+									}
+									catch{
+										$res.CommandElements[0].value
+									}
+								}
+								else{$res.CommandElements[0].value})
 						Script = $file.name
 						Path = $file.FullName
 						CommandLine = $res.Parent
