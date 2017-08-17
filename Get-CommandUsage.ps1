@@ -146,7 +146,7 @@ param(
 			#list command -> aliases
 			$aliasCMD = @{}
 			foreach ($aliasInGroup in $aliasGroup){
-				$aliasCMD.Add($aliasInGroup.name,@($aliasInGroup.Group.name))
+				$aliasCMD.Add($aliasInGroup.name,$aliasInGroup.Group.name)
 			}
 		}
 		
@@ -163,17 +163,17 @@ param(
 			$scriptFileAst = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
 			#Get specific commands from script file 
 			If (!$PSCmdlet.MyInvocation.BoundParameters["All"].IsPresent){					
-				Foreach ($command in $commands){					
-					Write-Debug "      Find $command using regex"
-					if ($scriptFileAst.Extent.Text | Select-String -Pattern "(?i)$command") {
+				Foreach ($singleCommand in $commands){					
+					Write-Debug "      Find $singleCommand using regex"
+					if ($scriptFileAst.Extent.Text | Select-String -Pattern "(?i)$singleCommand") {
 						Write-Debug "		Get command usage with Ast"
-						$commandToFind = $command
+						$commandToFind = $singleCommand
 						$results.AddRange($scriptFileAst.FindAll(${function:Find-CommandInAst}, $true))
 					}
 					#expand command aliases and find them in script
 					If ($PSCmdlet.MyInvocation.BoundParameters["AliasExpand"].IsPresent){
 						Write-Debug "      Expand command aliases"									
-						foreach ($alias in ($aliasCMD[$command])[0]){
+						foreach ($alias in $aliasCMD[$singleCommand]){
 							Write-Debug "       Find $alias using regex"
 							if ($scriptFileAst.Extent.Text | Select-String -Pattern "(?i)$alias") {
 								Write-Debug "		Get command usage with Ast"
